@@ -1,0 +1,58 @@
+// Filter temperature sensor readings using the Kalman process and Window averaginga
+
+const int sensorPin = A0;  // named constant for the pin the sensor is connected to
+
+// kalman variables
+float varVolt = 1.12184278324081E-05;  // variance determined using excel and reading samples of raw sensor data which is constant
+float varProcess = 1e-8;
+float Pc = 0.0;
+float G = 0.0;
+float P = 1.0;
+float Xp = 0.0;
+float Zp = 0.0;
+float Xe = 0.0;
+
+int WINDOW_SIZE=50;
+int INDEX = 0;
+float VALUE = 0;
+float SUM = 0;
+float READINGS[50];
+float AVERAGED = 0;
+
+void setup() {
+  // open a serial connection to display values
+  Serial.begin(9600);
+}
+
+void loop() {
+  int sensorVal = analogRead(sensorPin);     // read the value on AnalogIn pin 0 and store it in a variable
+  float voltage = sensorVal * 0.488;         // convert the ADC reading to voltage
+
+  // kalman process
+  Pc = P + varProcess;       //Predict covariance
+  Xp = Xe;                   //Predict state
+  
+  G = Pc/(Pc + varVolt);    // kalman gain
+        
+  Zp = Xp;
+  Xe = G*(voltage-Zp)+Xp;   //update kalman State estimate of the sensor voltage
+  P = (1-G)*Pc;             //update covarience  
+
+  Serial.print(voltage);    //printing raw sensor value
+  Serial.print(",");
+  Serial.print(Xe);         //printing new state
+
+  
+  SUM = SUM - READINGS[INDEX];       // Remove the oldest entry from the sum
+  
+  
+  READINGS[INDEX] = voltage;           // Add the newest reading to the window
+  SUM = SUM + voltage;                 // Add the newest reading to the sum
+  INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
+
+  AVERAGED = SUM / WINDOW_SIZE;      // Divide the sum of the window by the window size for the result
+  
+  Serial.print(",");
+  Serial.println(AVERAGED);
+  delay(20);
+}
